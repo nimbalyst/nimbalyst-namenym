@@ -1,0 +1,81 @@
+{
+  "id": "com.nimbalyst.namenym",
+  "name": "Namenym",
+  "version": "0.1.0",
+  "author": "Nimbalyst",
+  "description": "AI-powered brand naming tool for Nimbalyst",
+  "main": "dist/index.js",
+  "styles": "dist/index.css",
+  "apiVersion": "1.0.0",
+  "permissions": {
+    "filesystem": true,
+    "ai": true,
+    "network": true
+  },
+  "marketplace": {
+    "categories": [
+      "ai-tools"
+    ],
+    "tags": [
+      "naming",
+      "branding",
+      "domain",
+      "brainstorming",
+      "ai",
+      "creative"
+    ],
+    "icon": "lightbulb",
+    "featured": false,
+    "tagline": "AI-powered brand naming and domain brainstorming",
+    "longDescription": "Move from a product brief to a shortlist with contextual name generation, word exploration, and direct additions to every list.",
+    "highlights": [
+      "Names-first workspace with editable notes and shortlist comparison",
+      "Automatic contextual word preparation and explicit refinement",
+      "Add themes, words, and finished names by hand"
+    ],
+    "fileTypes": [
+      ".namenym"
+    ],
+    "screenshots": [
+      {
+        "alt": "Namenym names workspace with themes and a shortlist",
+        "fileToOpen": "samples/demo.namenym"
+      }
+    ]
+  },
+  "contributions": {
+    "customEditors": [
+      {
+        "filePatterns": [
+          "*.namenym"
+        ],
+        "displayName": "Namenym",
+        "component": "NimbalystNamenymEditor",
+        "collaboration": {
+          "supported": true,
+          "documentType": "namenym",
+          "awarenessFields": [
+            "namenymSelection",
+            "namenymJob"
+          ]
+        }
+      }
+    ],
+    "newFileMenu": [
+      {
+        "displayName": "Namenym Project",
+        "extension": ".namenym",
+        "icon": "lightbulb",
+        "defaultContent": "{\n  \"version\": 2,\n  \"name\": \"Untitled Project\",\n  \"brief\": \"\",\n  \"selectedStyles\": [],\n  \"concepts\": [],\n  \"synonyms\": [],\n  \"mashups\": [],\n  \"shortlisted\": [],\n  \"selectedTlds\": [\n    \".com\",\n    \".ai\"\n  ],\n  \"settings\": {\n    \"showOnlyFavorited\": false,\n    \"hideUnavailable\": false\n  },\n  \"briefRevision\": 0,\n  \"summary\": \"\",\n  \"summarySourceRevision\": -1,\n  \"summaryRevision\": 0,\n  \"unassignedWords\": [],\n  \"migrationArchive\": [],\n  \"language\": \"English\",\n  \"constraints\": \"\"\n}"
+      }
+    ],
+    "aiTools": [
+      "namenym.get_project",
+      "namenym.add_themes",
+      "namenym.add_words",
+      "namenym.add_names",
+      "namenym.shortlist"
+    ]
+  },
+  "minAppVersion": "0.78.0"
+}

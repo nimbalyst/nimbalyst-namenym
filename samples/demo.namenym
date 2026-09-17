@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "CloudSync Rebrand",
+  "brief": "A modern developer platform for real-time file synchronization across teams. Targeting technical users who value speed, reliability, and clean interfaces.",
+  "selectedStyles": ["inventive", "compound"],
+  "concepts": [
+    { "id": "c1", "label": "velocity", "votes": 3, "source": "ai" },
+    { "id": "c2", "label": "nexus", "votes": 1, "source": "ai" },
+    { "id": "c3", "label": "pulse", "votes": 2, "source": "ai" },
+    { "id": "c4", "label": "forge", "votes": 0, "source": "ai" }
+  ],
+  "synonyms": [
+    { "id": "s1", "conceptId": "c1", "label": "swiftness", "votes": 1, "dismissed": false, "source": "ai" },
+    { "id": "s2", "conceptId": "c1", "label": "momentum", "votes": 0, "dismissed": false, "source": "ai" },
+    { "id": "s3", "conceptId": "c2", "label": "junction", "votes": 0, "dismissed": false, "source": "ai" },
+    { "id": "s4", "conceptId": "c2", "label": "link", "votes": 0, "dismissed": true, "source": "ai" }
+  ],
+  "mashups": [
+    { "id": "m1", "label": "Velonex", "votes": 0, "sources": [], "domainStatus": "unknown", "availableDomains": [], "evaluation": null },
+    { "id": "m2", "label": "Pulsforge", "votes": 0, "sources": [], "domainStatus": "unknown", "availableDomains": [], "evaluation": null },
+    { "id": "m3", "label": "Swiftlink", "votes": 0, "sources": [], "domainStatus": "unknown", "availableDomains": [], "evaluation": null }
+  ],
+  "shortlisted": ["m1"],
+  "selectedTlds": [".com", ".ai"],
+  "settings": {
+    "showOnlyFavorited": false,
+    "hideUnavailable": false
+  }
+}

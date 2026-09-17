@@ -1,0 +1,27 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Local agent and planning artifacts
+.claude/
+.agents/
+.nimbalyst/
+nimbalyst-local/
+.agents.md
+plans/
+
+# Credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+.npmrc
+*.pem
+*.key
+
+# Release archives
+*.tgz
+
+# Browser test output
+test-results/
+playwright-report/
