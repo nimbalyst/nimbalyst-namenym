@@ -19,8 +19,8 @@ Use Node.js 24 for development. In Nimbalyst, enable Extension Dev Tools in Sett
 
 - Add themes, words, and finished names directly, including without an AI connection. Enter submits; newline-separated paste adds a batch. Commas and semicolons offer a preview before splitting.
 - Generate a first round of names, an editable naming summary, and supporting themes. Words prepare automatically in batches while you review the names. Existing projects only prepare words when requested.
-- Include or exclude themes, exclude individual words with Undo, and refine the next round with More literal, More evocative, Shorter, Avoid compounds, or a custom direction.
-- Star names for the shortlist. Open a name for rationale, source themes, editable notes, and its actions. Compare the shortlist from the overflow menu.
+- Include or exclude themes, click a word to upvote it for the next round, and use the x that appears on hover to exclude a word or remove a theme, with Undo. Refine the next round with More literal, More evocative, Shorter, Avoid compounds, or a custom direction.
+- Click a name to shortlist it. The x that appears on hover hides it, with Undo. Open the details chevron for rationale, source themes, editable notes, and its actions. Compare the shortlist from the overflow menu.
 - Stop cancels queued work and discards late responses, keeping completed results. Provider failures offer an explicit Retry; reviewing, scrolling, and shortlisting never start AI requests.
 
 The five styles are Real words, Evocative, Phrases, Compounds, and Coined. In local files, names automatically check against the original Namenym domain service (Domainr via RapidAPI), with two concurrent requests per editor. Each tile shows its .com result; “Available .com only” filters the current list. Details and shortlist comparison show available .com, .ai, .net, and .org matches, public registrar-search links, and the last result time. Stop domain checks pauses automatic work; Recheck/Resume and per-name Retry are explicit. Renaming clears the old result, and late responses cannot attach to a changed name or reloaded file.
@@ -39,7 +39,7 @@ Shared exports use portable format v3; the reader still accepts v1 and v2. Favor
 
 ## Keyboard
 
-Tab into the names grid. Arrow keys move between names, Enter opens details, S toggles shortlist, E edits, H hides/restores, M opens actions, and Escape closes actions and details. A word can be edited or removed using its context menu (right-click or Shift+F10).
+Tab into the names grid. Arrow keys move between names, Enter or S toggles the shortlist, D opens details, E edits, Delete or H hides/restores, M opens actions, and Escape closes actions and details. A focused word toggles its upvote with Enter, excludes with Delete, and can be edited or removed using its context menu (right-click or Shift+F10).
 
 ## Project files
 

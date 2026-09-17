@@ -253,11 +253,17 @@ export function projectReducer(
         ),
       };
     case "DISMISS_SYNONYM":
-    case "VOTE_SYNONYM":
       return {
         ...state,
         synonyms: state.synonyms.map((w) =>
           w.id === a.id ? { ...w, dismissed: !w.dismissed } : w
+        ),
+      };
+    case "VOTE_SYNONYM":
+      return {
+        ...state,
+        synonyms: state.synonyms.map((w) =>
+          w.id === a.id ? { ...w, votes: w.votes > 0 ? 0 : 1 } : w
         ),
       };
     case "REMOVE_CONCEPT":

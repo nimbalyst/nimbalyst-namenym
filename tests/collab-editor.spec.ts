@@ -64,13 +64,13 @@ test("browser peers merge personal favorites, notes and brief edits, survive reo
     ).toBe(0);
     await page.locator(".nn-star").first().click();
   }
-  await a.locator(".nn-name-label").first().click();
+  await a.locator(".nn-name-details").first().click();
   await a.getByLabel("Notes", { exact: true }).fill("Keep this candidate");
   await sync(a, b);
   await expect(b.locator(".nn-favorite-count").first()).toHaveText(
     "2 favorites"
   );
-  await b.locator(".nn-name-label").first().click();
+  await b.locator(".nn-name-details").first().click();
   await expect(b.getByLabel("Notes", { exact: true })).toHaveValue(
     "Keep this candidate"
   );
@@ -109,7 +109,7 @@ test("browser peers merge personal favorites, notes and brief edits, survive reo
     "aria-pressed",
     "true"
   );
-  await fresh.locator(".nn-name-label").first().click();
+  await fresh.locator(".nn-name-details").first().click();
   await expect(fresh.getByLabel("Notes", { exact: true })).toHaveValue(
     "Keep this candidate"
   );

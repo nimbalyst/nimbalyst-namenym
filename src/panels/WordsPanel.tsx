@@ -1,7 +1,12 @@
 import React, { useState, useContext } from "react";
 import { ProjectEditingContext } from "../collab/ProjectText";
 import { InlineAdd } from "./InlineAdd";
-import { normalize, type NamenymProject, type Synonym } from "../types";
+import {
+  normalize,
+  type Concept,
+  type NamenymProject,
+  type Synonym,
+} from "../types";
 import { preparationRevision, validLabel, type Action } from "../state";
 interface Props {
   project: NamenymProject;
@@ -78,6 +83,33 @@ export function WordsPanel({
       setTimeout(() => document.getElementById(`word-${word?.id}`)?.focus(), 0);
     }
   }
+  function removeTheme(c: Concept) {
+    if (readOnly) return;
+    const words = p.synonyms.filter((w) => w.conceptId === c.id);
+    apply({ type: "REMOVE_CONCEPT", id: c.id });
+    notice(`Removed ${c.label}`, () =>
+      apply({
+        type: "RESTORE_THEME",
+        theme: c,
+        words,
+        nameSources: p.mashups.map((m) => ({
+          id: m.id,
+          sources: m.sources.filter(
+            (s) => s.id === c.id || words.some((w) => w.id === s.id)
+          ),
+        })),
+      })
+    );
+  }
+  function excludeWord(w: Synonym) {
+    if (readOnly) return;
+    apply({ type: "DISMISS_SYNONYM", id: w.id });
+    notice(`${w.dismissed ? "Included" : "Excluded"} ${w.label}`, () =>
+      apply({ type: "DISMISS_SYNONYM", id: w.id })
+    );
+  }
+  const startEditing = (w: Synonym) =>
+    setEditing({ kind: "synonyms", id: w.id, label: w.label });
   const missing = p.concepts.filter(
     (c) => c.included !== false && c.preparedRevision !== preparationRevision(p)
   );
@@ -122,31 +154,6 @@ export function WordsPanel({
                 >
                   Edit theme
                 </button>
-                <button
-                  disabled={readOnly}
-                  onClick={() => {
-                    const words = p.synonyms.filter(
-                      (w) => w.conceptId === c.id
-                    );
-                    apply({ type: "REMOVE_CONCEPT", id: c.id });
-                    notice(`Removed ${c.label}`, () =>
-                      apply({
-                        type: "RESTORE_THEME",
-                        theme: c,
-                        words,
-                        nameSources: p.mashups.map((m) => ({
-                          id: m.id,
-                          sources: m.sources.filter(
-                            (s) =>
-                              s.id === c.id || words.some((w) => w.id === s.id)
-                          ),
-                        })),
-                      })
-                    );
-                  }}
-                >
-                  Remove theme
-                </button>
                 {normalize(c.label) === "knowlege" && (
                   <button
                     disabled={readOnly}
@@ -164,6 +171,16 @@ export function WordsPanel({
                 )}
               </div>
             </details>
+            {!readOnly && (
+              <button
+                className="nn-x"
+                title={`Remove theme ${c.label}`}
+                aria-label={`Remove theme ${c.label}`}
+                onClick={() => removeTheme(c)}
+              >
+                ×
+              </button>
+            )}
           </div>
           {editing?.kind === "concepts" && editing.id === c.id && (
             <form
@@ -195,39 +212,62 @@ export function WordsPanel({
                   (!w.dismissed || excluded.includes(c.id))
               )
               .map((w) => (
-                <button
-                  disabled={readOnly}
-                  id={`word-${w.id}`}
+                <span
                   key={w.id}
-                  className={w.dismissed ? "nn-struck" : ""}
-                  aria-pressed={!w.dismissed}
-                  title={`${w.dismissed ? "Include" : "Exclude"} ${
-                    w.label
-                  }. Right-click or press Shift+F10 to edit.`}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setEditing({ kind: "synonyms", id: w.id, label: w.label });
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "F10" && e.shiftKey) {
-                      e.preventDefault();
-                      setEditing({
-                        kind: "synonyms",
-                        id: w.id,
-                        label: w.label,
-                      });
-                    }
-                  }}
-                  onClick={() => {
-                    apply({ type: "DISMISS_SYNONYM", id: w.id });
-                    notice(
-                      `${w.dismissed ? "Included" : "Excluded"} ${w.label}`,
-                      () => apply({ type: "DISMISS_SYNONYM", id: w.id })
-                    );
-                  }}
+                  className={`nn-word ${w.dismissed ? "nn-struck" : ""} ${
+                    w.votes > 0 && !w.dismissed ? "nn-voted" : ""
+                  }`}
                 >
-                  {w.label}
-                </button>
+                  <button
+                    disabled={readOnly}
+                    id={`word-${w.id}`}
+                    className="nn-word-label"
+                    aria-pressed={w.dismissed ? undefined : w.votes > 0}
+                    title={
+                      w.dismissed
+                        ? `Include ${w.label} again`
+                        : `${w.votes > 0 ? "Remove upvote from" : "Upvote"} ${
+                            w.label
+                          }. Right-click or press Shift+F10 to edit.`
+                    }
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      startEditing(w);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "F10" && e.shiftKey) {
+                        e.preventDefault();
+                        startEditing(w);
+                      }
+                      if (e.key === "Delete" || e.key === "Backspace") {
+                        e.preventDefault();
+                        excludeWord(w);
+                      }
+                    }}
+                    onClick={() =>
+                      w.dismissed
+                        ? excludeWord(w)
+                        : apply({ type: "VOTE_SYNONYM", id: w.id })
+                    }
+                  >
+                    {w.label}
+                  </button>
+                  {!readOnly && (
+                    <button
+                      className={w.dismissed ? "nn-restore" : "nn-x"}
+                      tabIndex={-1}
+                      title={`${w.dismissed ? "Include" : "Exclude"} ${
+                        w.label
+                      }`}
+                      aria-label={`${w.dismissed ? "Include" : "Exclude"} ${
+                        w.label
+                      }`}
+                      onClick={() => excludeWord(w)}
+                    >
+                      {w.dismissed ? "↺" : "×"}
+                    </button>
+                  )}
+                </span>
               ))}
           </div>
           {editing?.kind === "synonyms" &&

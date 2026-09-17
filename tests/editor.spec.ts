@@ -113,7 +113,7 @@ test("brief changes reject late names; failed requests retry only on explicit ac
     await b.getByLabel("Add a name", { exact: true }).press("Enter");
     await b.locator(".nn-name-tile").first().focus();
     await b.keyboard.press("s");
-    await b.keyboard.press("Enter");
+    await b.keyboard.press("d");
     await b.keyboard.press("Escape");
     await b.getByRole("tab", { name: /Shortlist/ }).click();
     await b.locator(".nn-names").evaluate((el) => (el.scrollTop = 1000));
@@ -137,7 +137,7 @@ test("manual batch entry, duplicate focus, inline edit, save/reload contract and
     await b.getByLabel("Edit name", { exact: true }).fill("Field Manual");
     await b.getByLabel("Edit name", { exact: true }).press("Enter");
     await expect(b.locator(".nn-name-tile").first()).toBeFocused();
-    await b.keyboard.press("Enter");
+    await b.keyboard.press("d");
     await b.locator(".nn-detail textarea").fill("Keep this note");
     await b.evaluate(() => {
       window.fixture.delaySave();
@@ -156,6 +156,67 @@ test("manual batch entry, duplicate focus, inline edit, save/reload contract and
     expect(await b.evaluate(() => window.fixture.dirty())).toBe(false);
     expect(await b.evaluate(() => window.fixture.writes())).toBe(2);
     expect(await b.evaluate(() => window.fixture.calls().length)).toBe(0);
+  } finally {
+    await b.close();
+  }
+});
+test("clicking a name shortlists it, the hover x hides it with undo, and words upvote on click and exclude from their x", async ({
+  page,
+}) => {
+  const b = await mount(page);
+  try {
+    await b.getByLabel("Add a name", { exact: true }).fill("Open Book\nRelay");
+    await b.getByLabel("Add a name", { exact: true }).press("Enter");
+    const first = b.locator(".nn-name-tile").first();
+    await first.locator(".nn-name-label").click();
+    await expect(first).toHaveClass(/nn-shortlisted/);
+    await expect(first.locator(".nn-star")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(b.locator(".nn-detail")).toHaveCount(0);
+    await first.locator(".nn-name-label").click();
+    await expect(first).not.toHaveClass(/nn-shortlisted/);
+    await first.locator(".nn-name-details").click();
+    await expect(b.locator(".nn-detail")).toHaveCount(1);
+    await b.getByRole("button", { name: "Close name details" }).click();
+    await first.hover();
+    await first.getByRole("button", { name: "Hide Open Book" }).click();
+    await expect(b.locator(".nn-name-tile")).toHaveCount(1);
+    await expect(b.locator(".nn-toast")).toContainText("Hidden Open Book");
+    await b.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(b.locator(".nn-name-tile")).toHaveCount(2);
+    await b.getByLabel("Add a theme", { exact: true }).fill("Knowledge");
+    await b.getByLabel("Add a theme", { exact: true }).press("Enter");
+    await b.getByLabel("Add word to Knowledge", { exact: true }).fill("wisdom");
+    await b.getByLabel("Add word to Knowledge", { exact: true }).press("Enter");
+    const word = b.locator(".nn-word").first();
+    await word.locator(".nn-word-label").click();
+    await expect(word).toHaveClass(/nn-voted/);
+    expect(
+      (await b.evaluate(() => window.fixture.project())).synonyms[0].votes,
+    ).toBe(1);
+    await word.locator(".nn-word-label").click();
+    await expect(word).not.toHaveClass(/nn-voted/);
+    await word.hover();
+    await word.getByRole("button", { name: "Exclude wisdom" }).click();
+    await expect(b.locator(".nn-word")).toHaveCount(0);
+    expect(
+      (await b.evaluate(() => window.fixture.project())).synonyms[0].dismissed,
+    ).toBe(true);
+    await b.getByRole("button", { name: /1 excluded/ }).click();
+    await expect(b.locator(".nn-word.nn-struck")).toHaveCount(1);
+    await b.getByRole("button", { name: "Include wisdom" }).click();
+    await expect(b.locator(".nn-word.nn-struck")).toHaveCount(0);
+    await expect(b.locator(".nn-word")).toHaveCount(1);
+    await b.locator(".nn-theme-heading").hover();
+    await b.getByRole("button", { name: "Remove theme Knowledge" }).click();
+    await expect(b.locator(".nn-theme")).toHaveCount(0);
+    await b.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(b.locator(".nn-theme")).toHaveCount(1);
+    await expect(b.locator(".nn-word")).toHaveCount(1);
+    // Only the new theme's word preparation ran; review actions never start AI work.
+    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(1);
   } finally {
     await b.close();
   }

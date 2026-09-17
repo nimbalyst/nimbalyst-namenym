@@ -121,6 +121,16 @@ export function NamesPanel({
     setFocused(id);
     requestAnimationFrame(() => document.getElementById(`name-${id}`)?.focus());
   }
+  const hideVerb = shared ? "Archive" : "Hide";
+  const upvoteVerb = shared ? "Favorite" : "Shortlist";
+  const isShortlisted = (id: string) => p.shortlisted.includes(id);
+  function upvote(id: string) {
+    if (readOnly) return;
+    apply({ type: "TOGGLE_SHORTLIST", id });
+  }
+  function toggleDetails(id: string) {
+    setSelected(selected === id ? null : id);
+  }
   function hide(m: Mashup) {
     if (readOnly) return;
     apply({ type: "REMOVE_MASHUP", id: m.id });
@@ -152,9 +162,11 @@ export function NamesPanel({
         >
           Edit
         </button>
-        <button disabled={readOnly} onClick={() => hide(m)}>
-          {m.hidden ? "Restore" : shared ? "Archive" : "Hide"}
-        </button>
+        {m.hidden && (
+          <button disabled={readOnly} onClick={() => hide(m)}>
+            Restore
+          </button>
+        )}
         {!m.hidden && (
           <button
             disabled={readOnly}
@@ -201,14 +213,27 @@ export function NamesPanel({
       e.preventDefault();
       focus(names[Math.max(0, Math.min(names.length - 1, index + offset))].id);
     } else if (
-      ["enter", "s", "e", "h", "m", "escape", "home", "end"].includes(key)
+      [
+        "enter",
+        " ",
+        "s",
+        "d",
+        "e",
+        "h",
+        "delete",
+        "backspace",
+        "m",
+        "escape",
+        "home",
+        "end",
+      ].includes(key)
     ) {
       e.preventDefault();
       const m = names[index];
-      if (key === "enter") setSelected(selected === id ? null : id);
-      if (key === "s" && !readOnly) apply({ type: "TOGGLE_SHORTLIST", id });
+      if (key === "enter" || key === " " || key === "s") upvote(id);
+      if (key === "d") toggleDetails(id);
       if (key === "e" && !readOnly) setEdit({ id, label: m.label });
-      if (key === "h") hide(m);
+      if (key === "h" || key === "delete" || key === "backspace") hide(m);
       if (key === "m") setMenu(menu === id ? null : id);
       if (key === "escape") {
         setMenu(null);
@@ -320,8 +345,10 @@ export function NamesPanel({
       )}
       {!p.mashups.length && firstRun}
       <p id="nn-grid-help" className="nn-sr-only">
-        Arrow keys move between names. Enter toggles details. S shortlists. E
-        edits. H hides. M opens actions. Escape closes actions and details.
+        Arrow keys move between names. Enter or S toggles the{" "}
+        {upvoteVerb.toLowerCase()}. D toggles details. E edits. Delete{" "}
+        {hideVerb.toLowerCase()}s. M opens actions. Escape closes actions and
+        details.
       </p>
       <div
         className="nn-names-grid"
@@ -355,19 +382,30 @@ export function NamesPanel({
               }
               onFocus={() => setFocused(m.id)}
               onKeyDown={(e) => keys(e, m.id, index)}
+              onClick={(e) => {
+                const target = e.target as HTMLElement;
+                if (
+                  target !== e.currentTarget &&
+                  !target.classList.contains("nn-name-main")
+                )
+                  return;
+                readOnly ? toggleDetails(m.id) : upvote(m.id);
+              }}
               className={`nn-name-tile ${
-                p.shortlisted.includes(m.id) ? "nn-shortlisted" : ""
-              } ${selected === m.id ? "nn-selected" : ""}`}
+                isShortlisted(m.id) ? "nn-shortlisted" : ""
+              } ${selected === m.id ? "nn-selected" : ""} ${
+                readOnly ? "nn-read-only" : ""
+              }`}
             >
               <button
                 disabled={readOnly}
                 className="nn-star"
                 tabIndex={-1}
-                aria-label={`${shared ? "Favorite" : "Shortlist"} ${m.label}`}
-                aria-pressed={p.shortlisted.includes(m.id)}
-                onClick={() => apply({ type: "TOGGLE_SHORTLIST", id: m.id })}
+                aria-label={`${upvoteVerb} ${m.label}`}
+                aria-pressed={isShortlisted(m.id)}
+                onClick={() => upvote(m.id)}
               >
-                {p.shortlisted.includes(m.id) ? "★" : "☆"}
+                {isShortlisted(m.id) ? "★" : "☆"}
               </button>
               <div className="nn-name-main">
                 {edit?.id === m.id ? (
@@ -397,7 +435,19 @@ export function NamesPanel({
                   <button
                     className="nn-name-label"
                     tabIndex={-1}
-                    onClick={() => setSelected(selected === m.id ? null : m.id)}
+                    aria-pressed={readOnly ? undefined : isShortlisted(m.id)}
+                    title={
+                      readOnly
+                        ? "Open details"
+                        : isShortlisted(m.id)
+                        ? `Remove from ${
+                            shared ? "my favorites" : "shortlist"
+                          } (Enter)`
+                        : `${upvoteVerb} (Enter)`
+                    }
+                    onClick={() =>
+                      readOnly ? toggleDetails(m.id) : upvote(m.id)
+                    }
                   >
                     {m.label}
                   </button>
@@ -434,21 +484,48 @@ export function NamesPanel({
                         ).toLocaleString()}`
                       : "Domain availability")
                   }
-                  onClick={() => setSelected(selected === m.id ? null : m.id)}
+                  onClick={() => toggleDetails(m.id)}
                 >
                   {domainLabel(m)}
                 </button>
               </div>
-              <button
-                className="nn-tile-menu"
-                tabIndex={-1}
-                title={`Actions for ${m.label}`}
-                aria-label={`Actions for ${m.label}`}
-                aria-expanded={menu === m.id}
-                onClick={() => setMenu(menu === m.id ? null : m.id)}
-              >
-                ⋯
-              </button>
+              <div className="nn-tile-controls">
+                <button
+                  className="nn-name-details"
+                  tabIndex={-1}
+                  title={`${selected === m.id ? "Close" : "Open"} details (D)`}
+                  aria-label={`Details for ${m.label}`}
+                  aria-expanded={selected === m.id}
+                  onClick={() => toggleDetails(m.id)}
+                >
+                  ▸
+                </button>
+                <button
+                  className="nn-tile-menu"
+                  tabIndex={-1}
+                  title={`Actions for ${m.label} (M)`}
+                  aria-label={`Actions for ${m.label}`}
+                  aria-expanded={menu === m.id}
+                  onClick={() => setMenu(menu === m.id ? null : m.id)}
+                >
+                  ⋯
+                </button>
+                {!readOnly && (
+                  <button
+                    className={m.hidden ? "nn-restore" : "nn-x"}
+                    tabIndex={-1}
+                    title={`${m.hidden ? "Restore" : hideVerb} ${
+                      m.label
+                    } (Delete)`}
+                    aria-label={`${m.hidden ? "Restore" : hideVerb} ${
+                      m.label
+                    }`}
+                    onClick={() => hide(m)}
+                  >
+                    {m.hidden ? "↺" : "×"}
+                  </button>
+                )}
+              </div>
               {menu === m.id && (
                 <div className="nn-tile-menu-list">{actions(m)}</div>
               )}
@@ -485,8 +562,8 @@ export function NamesPanel({
             ? "No available .com matches in this list. Turn off the filter to see all names and check results."
             : filter === "shortlist"
             ? shared
-              ? "Star a name to add it to your favorites."
-              : "Star a name to start your shortlist."
+              ? "Click a name to add it to your favorites."
+              : "Click a name to start your shortlist."
             : filter === "hidden"
             ? shared
               ? "No archived names."

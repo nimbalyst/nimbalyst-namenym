@@ -205,17 +205,81 @@
   flex-wrap: wrap;
   gap: 5px;
 }
-.nn-word-list button {
+.nn-word {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+.nn-editor .nn-word-label {
   background: var(--nn-field);
-  border: 0;
-  padding: 4px 7px;
+  border: 1px solid transparent;
+  padding: 4px 8px;
   min-height: 28px;
   font-size: 12px;
   overflow-wrap: anywhere;
+  transition: background 0.12s, border-color 0.12s;
 }
-.nn-struck {
+.nn-editor .nn-word-label:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--nn-accent) 55%, var(--nn-border));
+  background: color-mix(in srgb, var(--nn-accent) 12%, var(--nn-field));
+}
+.nn-voted .nn-word-label {
+  border-color: color-mix(in srgb, var(--nn-accent) 55%, var(--nn-border));
+  background: color-mix(in srgb, var(--nn-accent) 18%, var(--nn-field));
+  font-weight: 600;
+}
+.nn-voted .nn-word-label::before {
+  content: "▲";
+  font-size: 9px;
+  margin-right: 5px;
+  color: var(--nn-accent);
+}
+.nn-word > .nn-x,
+.nn-word > .nn-restore {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--nn-panel);
+  border: 1px solid var(--nn-border);
+}
+.nn-struck .nn-word-label {
   text-decoration: line-through;
   opacity: 0.55;
+}
+/* Shared hover-revealed remove and restore affordances. */
+.nn-editor .nn-x,
+.nn-editor .nn-restore {
+  border: 0;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 50%;
+  font-size: 15px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nn-muted);
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.nn-editor .nn-restore {
+  font-size: 13px;
+}
+.nn-editor .nn-x:hover {
+  color: var(--nim-error, #d46c64);
+  background: color-mix(in srgb, var(--nim-error, #d46c64) 15%, var(--nn-panel));
+}
+.nn-editor .nn-restore:hover {
+  color: var(--nn-accent);
+  background: color-mix(in srgb, var(--nn-accent) 15%, var(--nn-panel));
+}
+:is(.nn-name-tile, .nn-word, .nn-theme-heading):is(:hover, :focus-within)
+  :is(.nn-x, .nn-restore),
+.nn-editor :is(.nn-x, .nn-restore):focus-visible {
+  opacity: 1;
 }
 .nn-excluded .nn-word-list {
   opacity: 0.5;
@@ -348,6 +412,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  cursor: pointer;
   min-height: 51px;
   min-width: 0;
   position: relative;
@@ -356,11 +421,20 @@
   background: var(--nn-panel);
   padding: 0 4px;
 }
-.nn-name-tile.nn-shortlisted {
-  border-color: color-mix(in srgb, var(--nn-accent) 45%, var(--nn-border));
-  background: color-mix(in srgb, var(--nn-accent) 9%, var(--nn-panel));
+.nn-name-tile {
+  transition: background 0.12s, border-color 0.12s;
 }
-.nn-name-tile.nn-selected {
+.nn-name-tile:not(.nn-read-only):hover {
+  border-color: color-mix(in srgb, var(--nn-accent) 45%, var(--nn-border));
+  background: color-mix(in srgb, var(--nn-accent) 5%, var(--nn-panel));
+}
+.nn-name-tile.nn-shortlisted,
+.nn-name-tile.nn-shortlisted:hover {
+  border-color: color-mix(in srgb, var(--nn-accent) 60%, var(--nn-border));
+  background: color-mix(in srgb, var(--nn-accent) 12%, var(--nn-panel));
+}
+.nn-name-tile.nn-selected,
+.nn-name-tile.nn-selected:hover {
   border-color: var(--nn-accent);
 }
 .nn-editor .nn-star {
@@ -370,9 +444,18 @@
   min-width: 30px;
   min-height: 42px;
   color: var(--nn-muted);
+  transition: color 0.12s, transform 0.12s;
 }
+.nn-editor .nn-star:hover {
+  background: transparent;
+}
+.nn-name-tile:not(.nn-read-only):hover .nn-star,
 .nn-star[aria-pressed="true"] {
   color: var(--nn-accent);
+}
+.nn-name-tile:not(.nn-read-only):hover .nn-star[aria-pressed="false"] {
+  opacity: 0.75;
+  transform: scale(1.1);
 }
 .nn-editor .nn-name-label {
   border: 0;
@@ -387,6 +470,36 @@
   white-space: normal;
   line-height: 1.4;
 }
+.nn-editor .nn-name-label:hover {
+  background: transparent;
+}
+.nn-tile-controls {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding-right: 2px;
+  flex-shrink: 0;
+}
+.nn-editor .nn-name-details {
+  border: 0;
+  padding: 4px;
+  min-width: 22px;
+  min-height: 40px;
+  font-size: 13px;
+  color: var(--nn-muted);
+  opacity: 0;
+  transition: opacity 0.12s, transform 0.12s;
+}
+.nn-editor .nn-name-details[aria-expanded="true"] {
+  opacity: 1;
+  color: var(--nn-accent);
+  transform: rotate(90deg);
+}
+.nn-name-tile:hover .nn-name-details,
+.nn-name-tile:focus-within .nn-name-details,
+.nn-name-tile:focus .nn-name-details {
+  opacity: 1;
+}
 .nn-name-edit {
   width: 100%;
   flex: 1;
@@ -395,11 +508,15 @@
 .nn-editor .nn-tile-menu {
   border: 0;
   padding: 4px;
-  font-size: 20px;
+  font-size: 18px;
   opacity: 0;
   min-height: 40px;
-  min-width: 24px;
+  min-width: 22px;
   color: var(--nn-muted);
+  transition: opacity 0.12s;
+}
+.nn-editor .nn-tile-menu[aria-expanded="true"] {
+  opacity: 1;
 }
 .nn-name-tile:hover .nn-tile-menu,
 .nn-name-tile:focus-within .nn-tile-menu,
@@ -607,12 +724,18 @@
   .nn-names-toolbar > .nn-add {
     width: 150px;
   }
-  .nn-tile-menu {
+  .nn-tile-menu,
+  .nn-name-details,
+  .nn-x,
+  .nn-restore {
     opacity: 1 !important;
   }
 }
 @media (hover: none) {
-  .nn-editor .nn-tile-menu {
+  .nn-editor .nn-tile-menu,
+  .nn-editor .nn-name-details,
+  .nn-editor .nn-x,
+  .nn-editor .nn-restore {
     opacity: 1;
   }
 }

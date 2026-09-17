@@ -30,7 +30,8 @@ export function generationInputsCurrent(
         (w) =>
           w.id === word.id &&
           w.label === word.label &&
-          w.dismissed === word.dismissed
+          w.dismissed === word.dismissed &&
+          w.votes > 0 === word.votes > 0
       )
     ) &&
     snapshot.mashups.every((name) =>

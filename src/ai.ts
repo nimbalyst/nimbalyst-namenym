@@ -12,7 +12,7 @@ export type AIService = Pick<
   ExtensionAIService,
   "chatCompletion" | "listModels"
 >;
-export const PROMPT_VERSION = "naming-v2.1";
+export const PROMPT_VERSION = "naming-v2.2";
 // The host does not expose context-window limits. This conservative input budget is
 // explicit and checked on the complete request; content is never silently truncated.
 export const MAX_INPUT_CHARS = 64000;
@@ -33,7 +33,11 @@ export function namingContext(p: NamenymProject) {
         label: c.label,
         words: p.synonyms
           .filter((w) => w.conceptId === c.id && !w.dismissed)
-          .map((w) => ({ id: w.id, label: w.label })),
+          .map((w) => ({
+            id: w.id,
+            label: w.label,
+            ...(w.votes > 0 ? { preferred: true } : {}),
+          })),
       })),
     liked: p.mashups
       .filter((m) => !m.hidden && p.shortlisted.includes(m.id))
@@ -175,7 +179,7 @@ export async function generateRound(
 ) {
   const result = await request(
     ai,
-    `You are a naming strategist. Generate 8–12 strong, varied names, or fewer if quality is exhausted. Use the audience, tone, product meaning, constraints, included themes, liked names, and rejected names. Never repeat existing names. Use a balanced mix of real words (dictionary), evocative ideas (evocative), natural phrases (phrase), compounds (compound), and restrained coinages (inventive), unless selected styles narrow the mix. Do not force affixes, compound quotas, or repetitive stems. Check relevance, pronounceability, distinct directions, and obvious cliches before responding. Never claim domain availability or trademark clearance. Return {"names":[{"name":"...","style":"dictionary","rationale":"...","sourceIds":["theme-id"]}]}. ${
+    `You are a naming strategist. Generate 8–12 strong, varied names, or fewer if quality is exhausted. Use the audience, tone, product meaning, constraints, included themes, liked names, and rejected names. Give words marked preferred extra weight. Never repeat existing names. Use a balanced mix of real words (dictionary), evocative ideas (evocative), natural phrases (phrase), compounds (compound), and restrained coinages (inventive), unless selected styles narrow the mix. Do not force affixes, compound quotas, or repetitive stems. Check relevance, pronounceability, distinct directions, and obvious cliches before responding. Never claim domain availability or trademark clearance. Return {"names":[{"name":"...","style":"dictionary","rationale":"...","sourceIds":["theme-id"]}]}. ${
       initial
         ? 'Also return "summary" (under 6000 characters capturing audience, tone, constraints, and product meaning) and "themes" (4–6 {"id":"new-unique-id","label":"..."} thematic words). Names may refer to those IDs.'
         : "Use only supplied active theme IDs; sourceIds may be empty."
