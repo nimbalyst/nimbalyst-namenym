@@ -7,7 +7,7 @@ export const generationSignature = (p: NamenymProject): string =>
     p.constraints,
     p.selectedStyles,
     p.shortlisted,
-    p.concepts.map((c) => [c.id, c.label, c.included]),
+    p.concepts.map((c) => [c.id, c.label, c.included, c.votes > 0]),
   ]);
 
 export function summaryIsStale(p: NamenymProject): boolean {

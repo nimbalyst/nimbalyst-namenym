@@ -15,27 +15,11 @@ async function mount(page: any, content?: string) {
   await expect(browser.locator(".nn-editor")).toBeVisible();
   return browser;
 }
-const round = {
+const words = {
   summary: "Practical knowledge for software teams",
-  themes: ["Knowledge", "Trust", "Discovery", "Portability"].map(
-    (label, i) => ({ id: `theme${i}`, label }),
-  ),
-  names: [
-    {
-      name: "Fieldbook",
-      style: "dictionary",
-      rationale: "Practical lessons in one place",
-      sourceIds: ["theme0"],
-    },
-    {
-      name: "Relay",
-      style: "evocative",
-      rationale: "Knowledge that travels",
-      sourceIds: ["theme3"],
-    },
-  ],
+  words: ["Knowledge", "Trust", "Discovery", "Portability"],
 };
-test("first round is immediate, prepares four themes in two requests, and Stop discards late words", async ({
+test("brief finds root words, liking a word prepares its synonyms, names build on liked words, and Stop discards late results", async ({
   page,
 }) => {
   const b = await mount(page);
@@ -43,59 +27,123 @@ test("first round is immediate, prepares four themes in two requests, and Stop d
     await b
       .getByLabel("Project brief", { exact: true })
       .fill("Shared software knowledge");
+    await expect(
+      b.getByRole("button", { name: "Generate names", exact: true }),
+    ).toHaveCount(0);
+    await b.getByRole("button", { name: "Find words", exact: true }).click();
+    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(1);
+    const first = await b.evaluate(() => window.fixture.calls()[0]);
+    expect(first.systemPrompt).toContain('Also return "summary"');
+    await b.evaluate((w) => window.fixture.complete(0, w), words);
+    await expect(b.locator(".nn-theme")).toHaveCount(4);
+    // Root words wait for a like; nothing else runs.
+    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(1);
+    await expect(b.locator(".nn-first-run")).toHaveCount(1);
+    await expect(
+      b.getByRole("button", { name: "Generate names", exact: true }),
+    ).toBeVisible();
+    const knowledge = b.locator(".nn-theme-label", { hasText: "Knowledge" });
+    await expect(knowledge).toHaveAttribute(
+      "title",
+      "Like Knowledge to prepare synonyms and guide names",
+    );
+    await knowledge.click();
+    await expect(b.locator(".nn-theme").first()).toHaveClass(/nn-liked/);
+    await expect
+      .poll(() => b.evaluate(() => window.fixture.calls().length))
+      .toBe(2);
+    const synonymRequest = await b.evaluate(() =>
+      JSON.parse(window.fixture.calls()[1].messages[0].content),
+    );
+    expect(synonymRequest.words.map((w: any) => w.label)).toEqual([
+      "Knowledge",
+    ]);
+    await b.evaluate((id) => {
+      window.fixture.complete(1, {
+        groups: [{ wordId: id, synonyms: ["wisdom", "insight"] }],
+      });
+    }, synonymRequest.words[0].id);
+    await expect(b.locator(".nn-word")).toHaveCount(2);
     await b
       .getByRole("button", { name: "Generate names", exact: true })
       .click();
     await expect(b.locator(".nn-skeleton")).toHaveCount(4);
-    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(1);
-    await b.evaluate((r) => window.fixture.complete(0, r), round);
-    await expect(b.locator(".nn-name-tile")).toHaveCount(2);
-    await expect(b.locator(".nn-first-run")).toHaveCount(0);
     await expect
       .poll(() => b.evaluate(() => window.fixture.calls().length))
       .toBe(3);
+    const nameRequest = await b.evaluate(() => {
+      const call = window.fixture.calls()[2];
+      return {
+        prompt: call.systemPrompt,
+        input: JSON.parse(call.messages[0].content),
+      };
+    });
+    expect(nameRequest.prompt).toContain("words the user liked");
+    expect(nameRequest.input.vocabulary).toBe("liked");
+    expect(nameRequest.input.words).toHaveLength(1);
+    expect(nameRequest.input.words[0].synonyms).toHaveLength(2);
+    const project = await b.evaluate(() => window.fixture.project());
+    await b.evaluate(
+      ({ wordId, synonymId }) =>
+        window.fixture.complete(2, {
+          names: [
+            {
+              name: "Fieldbook",
+              style: "dictionary",
+              rationale: "Practical lessons in one place",
+              sourceIds: [wordId, synonymId],
+            },
+            {
+              name: "Relay",
+              style: "evocative",
+              rationale: "Knowledge that travels",
+              sourceIds: [],
+            },
+          ],
+        }),
+      { wordId: project.concepts[0].id, synonymId: project.synonyms[0].id },
+    );
+    await expect(b.locator(".nn-name-tile")).toHaveCount(2);
+    await expect(b.locator(".nn-first-run")).toHaveCount(0);
+    expect(
+      (await b.evaluate(() => window.fixture.project())).mashups[0].sources,
+    ).toEqual([
+      { type: "concept", id: project.concepts[0].id },
+      { type: "synonym", id: project.synonyms[0].id },
+    ]);
     await b.locator(".nn-name-tile").first().focus();
     await b.keyboard.press("s");
+    await b.getByRole("button", { name: "More words", exact: true }).click();
+    await expect
+      .poll(() => b.evaluate(() => window.fixture.calls().length))
+      .toBe(4);
     await b.getByRole("button", { name: "Stop", exact: true }).click();
-    await b.evaluate(() => {
-      const calls = window.fixture.calls();
-      for (let i = 1; i < calls.length; i++) {
-        const input = JSON.parse(calls[i].messages[0].content);
-        window.fixture.complete(i, {
-          groups: input.themes.map((t) => ({
-            themeId: t.id,
-            words: ["wisdom", "insight"],
-          })),
-        });
-      }
-    });
-    await expect(b.locator(".nn-word-list button")).toHaveCount(0);
+    await b.evaluate(() =>
+      window.fixture.complete(3, { words: ["Late", "Later"] }),
+    );
+    await expect(b.locator(".nn-theme")).toHaveCount(4);
     expect(
       (await b.evaluate(() => window.fixture.project())).shortlisted,
     ).toHaveLength(1);
-    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(3);
+    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(4);
   } finally {
     await b.close();
   }
 });
-test("brief changes reject late names; failed requests retry only on explicit action; normal review is request-free", async ({
+test("brief changes reject late words; failed requests retry only on explicit action; normal review is request-free", async ({
   page,
 }) => {
   const b = await mount(page);
   try {
     await b.getByLabel("Project brief", { exact: true }).fill("Original brief");
-    await b
-      .getByRole("button", { name: "Generate names", exact: true })
-      .click();
+    await b.getByRole("button", { name: "Find words", exact: true }).click();
     await b.getByLabel("Project brief", { exact: true }).fill("Changed brief");
-    await b.evaluate((r) => window.fixture.complete(0, r), round);
+    await b.evaluate((w) => window.fixture.complete(0, w), words);
     await expect(
-      b.getByRole("button", { name: "Generate names", exact: true }),
+      b.getByRole("button", { name: "Find words", exact: true }),
     ).toBeVisible();
-    await expect(b.locator(".nn-name-tile")).toHaveCount(0);
-    await b
-      .getByRole("button", { name: "Generate names", exact: true })
-      .click();
+    await expect(b.locator(".nn-theme")).toHaveCount(0);
+    await b.getByRole("button", { name: "Find words", exact: true }).click();
     await b.evaluate(() => window.fixture.fail(1));
     await expect(
       b.getByRole("button", { name: "Retry", exact: true }),
@@ -106,7 +154,7 @@ test("brief changes reject late names; failed requests retry only on explicit ac
       .poll(() => b.evaluate(() => window.fixture.calls().length))
       .toBe(3);
     await b.getByRole("button", { name: "Stop", exact: true }).click();
-    await b.evaluate((r) => window.fixture.complete(2, r), round);
+    await b.evaluate((w) => window.fixture.complete(2, w), words);
     await b
       .getByLabel("Add a name", { exact: true })
       .fill("Open Book\nPlain Speaking");
@@ -160,7 +208,7 @@ test("manual batch entry, duplicate focus, inline edit, save/reload contract and
     await b.close();
   }
 });
-test("clicking a name shortlists it, the hover x hides it with undo, and words upvote on click and exclude from their x", async ({
+test("clicking a name shortlists it, the hover x hides it with undo, synonyms upvote on click and exclude from their x, and liking a word starts synonym preparation", async ({
   page,
 }) => {
   const b = await mount(page);
@@ -186,10 +234,16 @@ test("clicking a name shortlists it, the hover x hides it with undo, and words u
     await expect(b.locator(".nn-toast")).toContainText("Hidden Open Book");
     await b.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(b.locator(".nn-name-tile")).toHaveCount(2);
-    await b.getByLabel("Add a theme", { exact: true }).fill("Knowledge");
-    await b.getByLabel("Add a theme", { exact: true }).press("Enter");
-    await b.getByLabel("Add word to Knowledge", { exact: true }).fill("wisdom");
-    await b.getByLabel("Add word to Knowledge", { exact: true }).press("Enter");
+    await b.getByLabel("Add a word", { exact: true }).fill("Knowledge");
+    await b.getByLabel("Add a word", { exact: true }).press("Enter");
+    // Adding a word by hand never starts AI work.
+    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(0);
+    await b
+      .getByLabel("Add synonym to Knowledge", { exact: true })
+      .fill("wisdom");
+    await b
+      .getByLabel("Add synonym to Knowledge", { exact: true })
+      .press("Enter");
     const word = b.locator(".nn-word").first();
     await word.locator(".nn-word-label").click();
     await expect(word).toHaveClass(/nn-voted/);
@@ -210,12 +264,24 @@ test("clicking a name shortlists it, the hover x hides it with undo, and words u
     await expect(b.locator(".nn-word.nn-struck")).toHaveCount(0);
     await expect(b.locator(".nn-word")).toHaveCount(1);
     await b.locator(".nn-theme-heading").hover();
-    await b.getByRole("button", { name: "Remove theme Knowledge" }).click();
+    await b.getByRole("button", { name: "Remove word Knowledge" }).click();
     await expect(b.locator(".nn-theme")).toHaveCount(0);
     await b.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(b.locator(".nn-theme")).toHaveCount(1);
     await expect(b.locator(".nn-word")).toHaveCount(1);
-    // Only the new theme's word preparation ran; review actions never start AI work.
+    // Review actions never start AI work.
+    expect(await b.evaluate(() => window.fixture.calls().length)).toBe(0);
+    await b.locator(".nn-theme-label").click();
+    await expect(b.locator(".nn-theme")).toHaveClass(/nn-liked/);
+    expect(
+      (await b.evaluate(() => window.fixture.project())).concepts[0].votes,
+    ).toBe(1);
+    // Liking a word is the one review action that prepares synonyms.
+    await expect
+      .poll(() => b.evaluate(() => window.fixture.calls().length))
+      .toBe(1);
+    await b.locator(".nn-theme-label").click();
+    await expect(b.locator(".nn-theme")).not.toHaveClass(/nn-liked/);
     expect(await b.evaluate(() => window.fixture.calls().length)).toBe(1);
   } finally {
     await b.close();

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import type { EditorHostProps } from "@nimbalyst/extension-sdk";
 import { ALL_STYLES, STYLE_LABELS, normalize } from "./types";
 import { useProjectState } from "./useProjectState";
@@ -58,8 +58,6 @@ function ProjectEditor({ host }: EditorHostProps) {
     canGenerate
   );
   const presence = usePresence(host, generation.progress);
-  const preparationCallback = useRef(generation.prepare);
-  preparationCallback.current = generation.prepare;
   useEffect(() => {
     generation.stop();
   }, [loadRevision, readOnly]);
@@ -75,16 +73,7 @@ function ProjectEditor({ host }: EditorHostProps) {
               );
           }
         : undefined,
-      apply: (action: Action) => {
-        const old = get().concepts;
-        apply(action);
-        if (action.type === "ADD_CONCEPTS" && canGenerate())
-          preparationCallback.current(
-            get()
-              .concepts.filter((c) => !old.some((o) => o.id === c.id))
-              .map((c) => c.id)
-          );
-      },
+      apply,
     };
     const unregister =
       !loading && ready ? registerProject(host.filePath, api) : () => {};
@@ -109,17 +98,16 @@ function ProjectEditor({ host }: EditorHostProps) {
       labels.some((label) => normalize(label) === normalize(c.label))
     );
     notice(
-      `${added.length} theme(s) added${
+      `${added.length} word(s) added${
         duplicate ? `; “${duplicate.label}” already exists` : ""
-      }.`
+      }. Like a word to prepare its synonyms.`
     );
     if (duplicate)
       requestAnimationFrame(() =>
         document.getElementById(`theme-${duplicate.id}`)?.focus()
       );
-    if (added.length && canGenerate())
-      generation.prepare(added.map((c) => c.id));
   }
+  const hasWords = project.concepts.some((c) => c.included !== false);
   const stale = summaryIsStale(project);
   const brief = (
     <div className="nn-brief-editor">
@@ -272,18 +260,31 @@ function ProjectEditor({ host }: EditorHostProps) {
           <div className="nn-header-actions">
             {generation.busy ? (
               <button onClick={generation.stop}>Stop</button>
-            ) : (
+            ) : hasWords ? (
               <button
                 disabled={readOnly || !aiAvailable}
                 title={
                   !aiAvailable
                     ? "Generate names in the desktop app; results appear here live."
-                    : undefined
+                    : "Generate names from the liked words and their synonyms"
                 }
                 className="nn-primary"
                 onClick={() => generation.generate()}
               >
                 Generate names
+              </button>
+            ) : (
+              <button
+                disabled={readOnly || !aiAvailable}
+                title={
+                  !aiAvailable
+                    ? "Find words in the desktop app; results appear here live."
+                    : "Find root words from the brief"
+                }
+                className="nn-primary"
+                onClick={() => generation.findWords()}
+              >
+                Find words
               </button>
             )}
             <details className="nn-menu">
@@ -297,7 +298,9 @@ function ProjectEditor({ host }: EditorHostProps) {
                 ].map((text) => (
                   <button
                     key={text}
-                    disabled={readOnly || !aiAvailable || generation.naming}
+                    disabled={
+                      readOnly || !aiAvailable || generation.naming || !hasWords
+                    }
                     onClick={(e) => {
                       generation.generate(text);
                       e.currentTarget.closest("details")!.open = false;
@@ -323,7 +326,9 @@ function ProjectEditor({ host }: EditorHostProps) {
                     onChange={(e) => setDirection(e.target.value)}
                   />
                   <button
-                    disabled={readOnly || !aiAvailable || generation.naming}
+                    disabled={
+                      readOnly || !aiAvailable || generation.naming || !hasWords
+                    }
                   >
                     Go
                   </button>
@@ -408,8 +413,12 @@ function ProjectEditor({ host }: EditorHostProps) {
           .map((j) => (
             <div className="nn-error" role="alert" key={j.id}>
               <span>
-                {j.type === "words" ? "Word preparation" : "Generation"} failed:{" "}
-                {j.error}
+                {j.type === "words"
+                  ? "Synonym preparation"
+                  : j.type === "roots"
+                  ? "Word search"
+                  : "Generation"}{" "}
+                failed: {j.error}
               </span>
               <button onClick={() => generation.retry(j.id)}>Retry</button>
               <button onClick={() => generation.dismiss(j.id)}>Dismiss</button>
@@ -440,6 +449,8 @@ function ProjectEditor({ host }: EditorHostProps) {
               project={project}
               apply={apply}
               prepare={generation.prepare}
+              findWords={generation.findWords}
+              finding={generation.finding}
               preparing={generation.preparingIds}
               notice={notice}
               addThemes={addThemes}
@@ -463,8 +474,9 @@ function ProjectEditor({ host }: EditorHostProps) {
                 <h2>What are you naming?</h2>
                 {!briefOpen && brief}
                 <p>
-                  Describe your idea, then Generate names — or add themes and
-                  names by hand.
+                  {hasWords
+                    ? "Like the words that fit. Synonyms follow from liked words, and Generate names builds on both."
+                    : "Describe your idea, then Find words. Like the words that fit, and generate names from them — or add words and names by hand."}
                 </p>
               </section>
             }

@@ -106,14 +106,15 @@ export const aiTools: ExtensionAITool[] = [
     name: "namenym.get_project",
     access: { kind: "editor-read" },
     description:
-      "Read the current naming project, including unsaved editor changes, theme IDs, words, names, and shortlist.",
+      "Read the current naming project, including unsaved editor changes. The pipeline is brief -> root words -> synonyms of liked words -> names. In the data, concepts are root words (votes > 0 means the user liked it; included false means excluded), synonyms belong to a root word by conceptId (votes > 0 means preferred), and mashups are names with sources and the shortlist.",
     inputSchema: { type: "object", properties: {} },
     handler: (_a, c) => access(c, () => [], false),
   },
   {
     name: "namenym.add_themes",
     access: { kind: "editor-write" },
-    description: "Add naming themes. Exact duplicates reuse existing entries.",
+    description:
+      "Add root words: single dictionary words the user can like or exclude, each standing for one idea the product could be named around (for example knowledge, trust, relay). Not phrases or name concepts. Liked words and their synonyms guide name generation. Exact duplicates reuse existing entries.",
     inputSchema: {
       type: "object",
       properties: { themes: listSchema },
@@ -133,7 +134,8 @@ export const aiTools: ExtensionAITool[] = [
   {
     name: "namenym.add_words",
     access: { kind: "editor-write" },
-    description: "Add lexical words or phrases to an existing theme by ID.",
+    description:
+      "Add synonyms or near-synonyms to an existing root word by its ID (a concept ID from namenym.get_project). Use the sense the brief implies, not loose associations.",
     inputSchema: {
       type: "object",
       properties: { themeId: { type: "string" }, words: listSchema },

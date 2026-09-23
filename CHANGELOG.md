@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Generation now runs as brief, then words, then synonyms, then names. Find words lists single root words from the brief instead of multi-word themes, liking a word is what prepares its synonyms, and Generate names builds on the liked words and their synonyms. Until a word is liked, every included word is used. Names now record the specific words and synonyms they drew on. Existing projects keep their themes and words; like a theme to prepare synonyms for it.
+- The AI tools describe root words and synonyms so an agent adds single words rather than name concepts.
 - Clicking a name now toggles the shortlist (or your favorite in shared projects) instead of opening details; the hover state previews the star, and a chevron or the D key opens details.
 - Clicking a word now upvotes it instead of excluding it. Upvoted words are marked preferred in generation requests.
 - Names, words, and themes remove through a small x that appears on hover, with Undo. Hidden names and excluded words show a restore control in its place.

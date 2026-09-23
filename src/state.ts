@@ -53,6 +53,7 @@ export type Action =
       type:
         | "REMOVE_CONCEPT"
         | "VOTE_CONCEPT"
+        | "LIKE_CONCEPT"
         | "DISMISS_SYNONYM"
         | "VOTE_SYNONYM"
         | "REMOVE_SYNONYM"
@@ -250,6 +251,13 @@ export function projectReducer(
         ...state,
         concepts: state.concepts.map((c) =>
           c.id === a.id ? { ...c, included: c.included === false } : c
+        ),
+      };
+    case "LIKE_CONCEPT":
+      return {
+        ...state,
+        concepts: state.concepts.map((c) =>
+          c.id === a.id ? { ...c, votes: c.votes > 0 ? 0 : 1 } : c
         ),
       };
     case "DISMISS_SYNONYM":

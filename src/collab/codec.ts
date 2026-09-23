@@ -59,6 +59,7 @@ const patchActions = new Set([
   "SET_NOTES",
   "REMOVE_MASHUP",
   "VOTE_CONCEPT",
+  "LIKE_CONCEPT",
   "DISMISS_SYNONYM",
   "VOTE_SYNONYM",
   "PREPARED",

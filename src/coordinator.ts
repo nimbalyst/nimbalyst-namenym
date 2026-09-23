@@ -6,7 +6,7 @@ export interface Job {
   key: string;
   project: string;
   revision: string;
-  type: "names" | "words" | "summary" | "domains";
+  type: "roots" | "names" | "words" | "summary" | "domains";
   themeIds: string[];
   status: JobStatus;
   error?: string;

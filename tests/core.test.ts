@@ -7,8 +7,10 @@ import { projectReducer } from "../src/state";
 import {
   namingContext,
   validateRound,
+  validateWords,
   expandWords,
   generateRound,
+  generateWords,
   MAX_INPUT_CHARS,
 } from "../src/ai";
 import { TaskCoordinator } from "../src/coordinator";
@@ -93,8 +95,12 @@ test("all insertion paths normalize exact duplicates in and across batches, reje
   assert.equal(p.mashups.length, 1);
   assert.equal(p.mashups[0].label, "Open Book");
 });
-test("context includes positive themes only, excludes dismissed words and unassigned words, carries feedback and summary", () => {
+test("context uses every included word until one is liked, then only liked words; excludes dismissed synonyms and carries feedback and summary", () => {
   let p = seed();
+  p = projectReducer(p, {
+    type: "ADD_CONCEPTS",
+    concepts: [{ label: "Trust", source: "manual" }],
+  });
   p = projectReducer(p, {
     type: "ADD_SYNONYMS",
     synonyms: [
@@ -114,20 +120,52 @@ test("context includes positive themes only, excludes dismissed words and unassi
     summary: "Portable software knowledge",
     sourceRevision: p.briefRevision,
   });
-  const context = namingContext(p);
+  let context = namingContext(p);
   assert.equal(context.brief, "Portable software knowledge");
-  assert.equal(context.themes.length, 1);
-  assert.equal(context.themes[0].words.length, 0);
+  assert.equal(context.vocabulary, "all");
+  assert.deepEqual(
+    context.words.map((w) => w.label),
+    ["Knowledge", "Trust"],
+  );
+  assert.equal(context.words[0].synonyms.length, 0);
   assert.deepEqual(context.liked, ["Liked"]);
   assert.deepEqual(context.rejected, ["Hidden"]);
+  p = projectReducer(p, { type: "LIKE_CONCEPT", id: p.concepts[2].id });
+  context = namingContext(p);
+  assert.equal(context.vocabulary, "liked");
+  assert.deepEqual(
+    context.words.map((w) => w.label),
+    ["Trust"],
+  );
   assert.throws(
     () =>
       namingContext(projectReducer(p, { type: "SET_BRIEF", brief: "Changed" })),
     /stale/,
   );
 });
-test("generation response validation rejects malformed metadata and unknown source IDs before insertion", () => {
+test("root word validation requires a summary for new projects and skips words that already exist", () => {
   const p = seed();
+  assert.throws(() => validateWords({ words: ["Trust"] }, p, true), /summary/);
+  assert.throws(() => validateWords({ summary: "s", words: [] }, p, true));
+  const result = validateWords(
+    { summary: "Portable knowledge", words: [" knowledge ", "Trust", "trust"] },
+    p,
+    true,
+  );
+  assert.equal(result.summary, "Portable knowledge");
+  assert.deepEqual(
+    result.words.map((w) => w.label),
+    ["Trust"],
+  );
+});
+test("generation response validation rejects malformed metadata and unknown source IDs, and records word and synonym sources", () => {
+  let p = seed();
+  p = projectReducer(p, {
+    type: "ADD_SYNONYMS",
+    synonyms: [
+      { label: "wisdom", conceptId: p.concepts[0].id, source: "manual" },
+    ],
+  });
   assert.throws(() =>
     validateRound(
       {
@@ -141,10 +179,9 @@ test("generation response validation rejects malformed metadata and unknown sour
         ],
       },
       p,
-      false,
     ),
   );
-  assert.throws(() => validateRound({ names: ["x"] }, p, false));
+  assert.throws(() => validateRound({ names: ["x"] }, p));
   const result = validateRound(
     {
       names: [
@@ -152,17 +189,59 @@ test("generation response validation rejects malformed metadata and unknown sour
           name: "Test",
           style: "inventive",
           rationale: "Relevant",
-          sourceIds: [p.concepts[0].id],
+          sourceIds: [p.concepts[0].id, p.synonyms[0].id],
         },
         { name: " test ", style: "inventive", rationale: "", sourceIds: [] },
       ],
     },
     p,
-    false,
   );
   assert.equal(result.names.length, 1);
+  assert.deepEqual(result.names[0].sources, [
+    { type: "concept", id: p.concepts[0].id },
+    { type: "synonym", id: p.synonyms[0].id },
+  ]);
 });
-test("lexical prompt uses software sense and excludes all previously offered words without forced affixes", async () => {
+test("root word prompt asks for single words, carries liked and excluded words, and asks for a summary only when missing", async () => {
+  let p = seed();
+  p.brief = "Portable software knowledge";
+  p = projectReducer(p, { type: "LIKE_CONCEPT", id: p.concepts[0].id });
+  p = projectReducer(p, { type: "VOTE_CONCEPT", id: p.concepts[1].id });
+  let request: any;
+  const ai: any = {
+    listModels: async () => [{ id: "chosen-model" }],
+    chatCompletion: async (options: any) => {
+      request = options;
+      return {
+        model: "actual-model",
+        content: JSON.stringify({
+          summary: "Portable knowledge for teams",
+          words: ["Knowledge", "Trust", "Relay"],
+        }),
+      };
+    },
+  };
+  const result = await generateWords(ai, p);
+  assert.match(request.systemPrompt, /one real dictionary word/);
+  assert.match(request.systemPrompt, /Also return "summary"/);
+  const input = JSON.parse(request.messages[0].content);
+  assert.deepEqual(input.likedWords, ["Knowledge"]);
+  assert.deepEqual(input.excludedWords, ["Portability"]);
+  assert.equal(result.summary, "Portable knowledge for teams");
+  assert.deepEqual(
+    result.words.map((w) => w.label),
+    ["Trust", "Relay"],
+  );
+  p = projectReducer(p, {
+    type: "SET_SUMMARY",
+    summary: "Existing summary",
+    sourceRevision: p.briefRevision,
+  });
+  await generateWords(ai, p, true);
+  assert.doesNotMatch(request.systemPrompt, /Also return "summary"/);
+  assert.match(request.systemPrompt, /additional/);
+});
+test("synonym prompt asks for synonyms in the brief's sense and excludes all previously offered synonyms", async () => {
   let p = seed();
   p.brief = "Portable software knowledge";
   p = projectReducer(p, {
@@ -182,8 +261,8 @@ test("lexical prompt uses software sense and excludes all previously offered wor
         content: JSON.stringify({
           groups: [
             {
-              themeId: p.concepts[1].id,
-              words: ["transfer", "mobility", "mobility"],
+              wordId: p.concepts[1].id,
+              synonyms: ["transfer", "mobility", "mobility"],
             },
           ],
         }),
@@ -191,7 +270,8 @@ test("lexical prompt uses software sense and excludes all previously offered wor
     },
   };
   const result = await expandWords(ai, p, [p.concepts[1].id]);
-  assert.match(request.systemPrompt, /real lexical words/);
+  assert.match(request.systemPrompt, /synonyms and near-synonyms/);
+  assert.doesNotMatch(request.systemPrompt, /associations are welcome/);
   assert.match(request.messages[0].content, /Portable software knowledge/);
   assert.match(request.messages[0].content, /transfer/);
   assert.deepEqual(
@@ -199,6 +279,37 @@ test("lexical prompt uses software sense and excludes all previously offered wor
     ["mobility"],
   );
   assert.equal(result.model, "actual-model");
+});
+test("name prompt states whether liked words guide the round", async () => {
+  let p = seed();
+  p.brief = "Portable software knowledge";
+  let request: any;
+  const ai: any = {
+    listModels: async () => [{ id: "chosen-model" }],
+    chatCompletion: async (options: any) => {
+      request = options;
+      return {
+        model: "actual-model",
+        content: JSON.stringify({
+          names: [
+            {
+              name: "Relay",
+              style: "dictionary",
+              rationale: "Knowledge that travels",
+              sourceIds: [p.concepts[0].id],
+            },
+          ],
+        }),
+      };
+    },
+  };
+  await generateRound(ai, p, "");
+  assert.match(request.systemPrompt, /No word has been liked yet/);
+  p = projectReducer(p, { type: "LIKE_CONCEPT", id: p.concepts[0].id });
+  const result = await generateRound(ai, p, "Shorter");
+  assert.match(request.systemPrompt, /words the user liked/);
+  assert.equal(JSON.parse(request.messages[0].content).direction, "Shorter");
+  assert.equal(result.names[0].sources[0].id, p.concepts[0].id);
 });
 test("oversized input is rejected before calling a provider; model is explicitly resolved before generation", async () => {
   const p = seed();
@@ -213,7 +324,8 @@ test("oversized input is rejected before calling a provider; model is explicitly
       calls++;
     },
   };
-  await assert.rejects(generateRound(ai, p, "", true), /input budget/);
+  await assert.rejects(generateRound(ai, p, ""), /input budget/);
+  await assert.rejects(generateWords(ai, p), /input budget/);
   assert.equal(calls, 0);
 });
 test("coordinator caps active requests at two, dedupes jobs, drops queued and late results on Stop", async () => {

@@ -12,6 +12,8 @@ interface Props {
   project: NamenymProject;
   apply: (a: Action) => void;
   prepare: (ids: string[], more?: boolean) => void;
+  findWords: (more?: boolean) => void;
+  finding: boolean;
   preparing: string[];
   notice: (text: string, undo?: () => void) => void;
   addThemes: (labels: string[]) => void;
@@ -21,6 +23,8 @@ export function WordsPanel({
   project: p,
   apply,
   prepare,
+  findWords,
+  finding,
   preparing,
   notice,
   addThemes,
@@ -71,8 +75,8 @@ export function WordsPanel({
     });
     notice(
       duplicates.length
-        ? `Already in words: ${duplicates.join(", ")}`
-        : `Added ${new Set(labels.map(normalize)).size} word(s).`
+        ? `Already listed: ${duplicates.join(", ")}`
+        : `Added ${new Set(labels.map(normalize)).size} synonym(s).`
     );
     if (duplicates.length) {
       const word = p.synonyms.find(
@@ -110,41 +114,75 @@ export function WordsPanel({
   }
   const startEditing = (w: Synonym) =>
     setEditing({ kind: "synonyms", id: w.id, label: w.label });
-  const missing = p.concepts.filter(
-    (c) => c.included !== false && c.preparedRevision !== preparationRevision(p)
-  );
+  const liked = (c: Concept) => c.included !== false && c.votes > 0;
+  const stale = (c: Concept) =>
+    c.preparedRevision !== preparationRevision(p);
+  // Liking a word is what moves it to the synonym step.
+  function likeWord(c: Concept) {
+    if (readOnly) return;
+    apply({ type: "LIKE_CONCEPT", id: c.id });
+    if (!liked(c) && c.included !== false && stale(c) && aiAvailable)
+      prepare([c.id]);
+  }
+  const missing = p.concepts.filter((c) => liked(c) && stale(c));
   return (
     <aside className="nn-words">
       <div className="nn-panel-heading">
         Words{" "}
-        {missing.length > 0 && (
-          <button
-            disabled={readOnly || !aiAvailable}
-            onClick={() => prepare(missing.map((c) => c.id))}
-          >
-            Prepare words
-          </button>
-        )}
+        <span>
+          {missing.length > 0 && (
+            <button
+              disabled={readOnly || !aiAvailable}
+              onClick={() => prepare(missing.map((c) => c.id))}
+            >
+              Prepare synonyms
+            </button>
+          )}
+          {p.concepts.length > 0 && (
+            <button
+              disabled={readOnly || !aiAvailable || finding}
+              title="Find more root words from the brief"
+              onClick={() => findWords(true)}
+            >
+              More words
+            </button>
+          )}
+        </span>
       </div>
+      {p.concepts.length === 0 && (
+        <p className="nn-words-hint">
+          Find words from the brief, or add your own. Like a word to prepare
+          its synonyms; liked words and synonyms guide name generation.
+        </p>
+      )}
       {p.concepts.map((c) => (
         <section
-          className={`nn-theme ${c.included === false ? "nn-excluded" : ""}`}
+          className={`nn-theme ${c.included === false ? "nn-excluded" : ""} ${
+            liked(c) ? "nn-liked" : ""
+          }`}
           key={c.id}
           id={`theme-${c.id}`}
           tabIndex={-1}
         >
           <div className="nn-theme-heading">
-            <input
-              type="checkbox"
-              disabled={readOnly}
-              aria-label={`Include ${c.label}`}
-              checked={c.included !== false}
-              onChange={() => apply({ type: "VOTE_CONCEPT", id: c.id })}
-            />
-            <strong>{c.label}</strong>
+            <button
+              disabled={readOnly || c.included === false}
+              className="nn-theme-label"
+              aria-pressed={c.included === false ? undefined : liked(c)}
+              title={
+                c.included === false
+                  ? `${c.label} is excluded`
+                  : liked(c)
+                  ? `Remove like from ${c.label}`
+                  : `Like ${c.label} to prepare synonyms and guide names`
+              }
+              onClick={() => likeWord(c)}
+            >
+              {c.label}
+            </button>
             {preparing.includes(c.id) && <span role="status">preparing…</span>}
             <details className="nn-menu">
-              <summary aria-label={`Theme actions for ${c.label}`}>⋯</summary>
+              <summary aria-label={`Word actions for ${c.label}`}>⋯</summary>
               <div>
                 <button
                   disabled={readOnly}
@@ -152,7 +190,13 @@ export function WordsPanel({
                     setEditing({ kind: "concepts", id: c.id, label: c.label })
                   }
                 >
-                  Edit theme
+                  Edit word
+                </button>
+                <button
+                  disabled={readOnly}
+                  onClick={() => apply({ type: "VOTE_CONCEPT", id: c.id })}
+                >
+                  {c.included === false ? "Include word" : "Exclude word"}
                 </button>
                 {normalize(c.label) === "knowlege" && (
                   <button
@@ -174,8 +218,8 @@ export function WordsPanel({
             {!readOnly && (
               <button
                 className="nn-x"
-                title={`Remove theme ${c.label}`}
-                aria-label={`Remove theme ${c.label}`}
+                title={`Remove word ${c.label}`}
+                aria-label={`Remove word ${c.label}`}
                 onClick={() => removeTheme(c)}
               >
                 ×
@@ -192,7 +236,7 @@ export function WordsPanel({
               <input
                 readOnly={readOnly}
                 autoFocus
-                aria-label="Edit theme"
+                aria-label="Edit word"
                 value={editing.label}
                 onChange={(e) =>
                   setEditing({ ...editing, label: e.target.value })
@@ -284,7 +328,7 @@ export function WordsPanel({
                 <input
                   readOnly={readOnly}
                   autoFocus
-                  aria-label="Edit word"
+                  aria-label="Edit synonym"
                   value={editing.label}
                   onChange={(e) =>
                     setEditing({ ...editing, label: e.target.value })
@@ -318,7 +362,7 @@ export function WordsPanel({
             )}
           <div className="nn-word-add">
             <InlineAdd
-              label={`Add word to ${c.label}`}
+              label={`Add synonym to ${c.label}`}
               onAdd={(labels) => addWords(c.id, labels)}
             />
             <button
@@ -326,11 +370,16 @@ export function WordsPanel({
                 readOnly ||
                 !aiAvailable ||
                 preparing.includes(c.id) ||
-                c.included === false
+                !liked(c)
+              }
+              title={
+                liked(c)
+                  ? `Find more synonyms for ${c.label}`
+                  : `Like ${c.label} to find synonyms`
               }
               onClick={() => prepare([c.id], true)}
             >
-              + more words
+              + more synonyms
             </button>
           </div>
           {p.synonyms.some((w) => w.conceptId === c.id && w.dismissed) && (
@@ -353,10 +402,10 @@ export function WordsPanel({
           )}
         </section>
       ))}
-      <InlineAdd label="Add a theme" onAdd={addThemes} />
+      <InlineAdd label="Add a word" onAdd={addThemes} />
       {p.unassignedWords.length > 0 && (
         <details>
-          <summary>Unassigned words ({p.unassignedWords.length})</summary>
+          <summary>Unassigned synonyms ({p.unassignedWords.length})</summary>
           {p.unassignedWords.map((w) => (
             <label key={w.id}>
               {w.label}
@@ -372,7 +421,7 @@ export function WordsPanel({
                   })
                 }
               >
-                <option value="">Choose theme…</option>
+                <option value="">Choose word…</option>
                 {p.concepts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.label}

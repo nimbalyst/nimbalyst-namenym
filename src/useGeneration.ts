@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { TaskCoordinator } from "./coordinator";
 import {
+  activeWords,
   expandWords,
   generateRound,
+  generateWords,
   refreshSummary,
   PROMPT_VERSION,
 } from "./ai";
@@ -13,6 +15,11 @@ import {
   generationSignature,
   generationInputsCurrent,
 } from "./generationInputs";
+/**
+ * Pipeline: brief -> root words (findWords) -> synonyms of liked words (prepare)
+ * -> names from liked words and synonyms (generate). Liking a word is the signal
+ * that moves it to the next step.
+ */
 export function useGeneration(
   path: string,
   get: () => NamenymProject,
@@ -38,6 +45,64 @@ export function useGeneration(
       );
     return ai;
   };
+  const busyWith = (type: "roots" | "names") =>
+    q.jobs.some(
+      (j) => j.type === type && ["queued", "running"].includes(j.status)
+    );
+  function findWords(more = false) {
+    if (!allowed.current() || busyWith("roots")) return;
+    const snapshot = get();
+    if (!snapshot.brief.trim() && !snapshot.summary.trim()) {
+      notice("Describe what you are naming before finding words.");
+      return;
+    }
+    const revision = generationSignature(snapshot);
+    const started = Date.now();
+    const requestId = generateId("roots");
+    q.enqueue({
+      key: JSON.stringify([
+        path,
+        "roots",
+        PROMPT_VERSION,
+        revision,
+        snapshot.concepts.map((c) => normalize(c.label)),
+        more,
+      ]),
+      project: path,
+      revision,
+      type: "roots",
+      priority: 3,
+      valid: () =>
+        allowed.current() && generationInputsCurrent(snapshot, get()),
+      run: () => generateWords(requireAI(), snapshot, more),
+      apply: (result) => {
+        const actions: Action[] = [];
+        if (result.summary)
+          actions.push({
+            type: "SET_SUMMARY",
+            summary: result.summary,
+            sourceRevision: snapshot.briefRevision,
+            sourceFingerprint: snapshot.brief,
+          });
+        actions.push({ type: "ADD_CONCEPTS", concepts: result.words });
+        apply({ type: "APPLY_GENERATION", requestId, actions });
+        console.info(
+          "[Namenym words]",
+          JSON.stringify({
+            request: requestId,
+            wordsMs: Date.now() - started,
+            count: result.words.length,
+            model: result.model,
+          })
+        );
+        notice(
+          result.words.length
+            ? `${result.words.length} words found. Like the ones that fit; synonyms and names follow from them.`
+            : "No new words in this round."
+        );
+      },
+    });
+  }
   const preparation = useRef<{ ids: string[]; completed: Set<string> } | null>(
     null
   );
@@ -92,15 +157,15 @@ export function useGeneration(
     preparation.current = batch;
     const started = Date.now();
     for (let index = 0; index < selected.length; index += 3) {
-      const themes = selected.slice(index, index + 3);
-      const themeIds = themes.map((c) => c.id);
+      const words = selected.slice(index, index + 3);
+      const themeIds = words.map((c) => c.id);
       const revision = preparationRevision(snapshot);
       const key = JSON.stringify([
         path,
         "words",
         PROMPT_VERSION,
         revision,
-        themes.map((c) => [
+        words.map((c) => [
           normalize(c.label),
           c.id,
           more
@@ -122,7 +187,7 @@ export function useGeneration(
         valid: () =>
           allowed.current() &&
           preparationRevision(get()) === revision &&
-          themes.every((t) =>
+          words.every((t) =>
             get().concepts.some(
               (c) =>
                 c.id === t.id && c.label === t.label && c.included !== false
@@ -144,7 +209,7 @@ export function useGeneration(
               "[Namenym preparation]",
               JSON.stringify({
                 project: path,
-                themeCount: batch.ids.length,
+                wordCount: batch.ids.length,
                 callCount: Math.ceil(batch.ids.length / 3),
                 completionMs: Date.now() - started,
                 model: result.model,
@@ -157,24 +222,18 @@ export function useGeneration(
     }
   }
   function generate(direction = "") {
-    if (!allowed.current()) return;
-    if (
-      q.jobs.some(
-        (j) => j.type === "names" && ["queued", "running"].includes(j.status)
-      )
-    )
-      return;
+    if (!allowed.current() || busyWith("names")) return;
     const snapshot = get();
-    const revision = generationSignature(snapshot);
-    const initial = !snapshot.summary;
-    if (
-      !snapshot.brief.trim() &&
-      !snapshot.concepts.length &&
-      !snapshot.synonyms.length
-    ) {
-      notice("Add a brief or a theme before generating names.");
+    const { words, guided } = activeWords(snapshot);
+    if (!words.length) {
+      notice(
+        snapshot.concepts.length
+          ? "Include or like at least one word before generating names."
+          : "Find words first, then like the ones that fit."
+      );
       return;
     }
+    const revision = generationSignature(snapshot);
     const started = Date.now();
     const round = {
       id: generateId("round"),
@@ -182,6 +241,8 @@ export function useGeneration(
       created: new Date().toISOString(),
     };
     if (direction) notice(`Refining: ${direction}`);
+    else if (!guided)
+      notice("No liked words yet, so every word is in play. Like words to guide the next round.");
     q.enqueue({
       key: JSON.stringify([
         path,
@@ -196,28 +257,25 @@ export function useGeneration(
       priority: 3,
       valid: () =>
         allowed.current() && generationInputsCurrent(snapshot, get()),
-      run: () => generateRound(requireAI(), snapshot, direction, initial),
+      run: () => generateRound(requireAI(), snapshot, direction),
       apply: (result) => {
-        const actions: Action[] = [];
-        if (result.summary)
-          actions.push({
-            type: "SET_SUMMARY",
-            summary: result.summary,
-            sourceRevision: snapshot.briefRevision,
-            sourceFingerprint: snapshot.brief,
-          });
-        actions.push({ type: "ADD_CONCEPTS", concepts: result.themes });
-        actions.push({
-          type: "ADD_MASHUPS",
-          mashups: result.names.map((n) => ({ ...n, round })),
+        apply({
+          type: "APPLY_GENERATION",
+          requestId: round.id,
+          actions: [
+            {
+              type: "ADD_MASHUPS",
+              mashups: result.names.map((n) => ({ ...n, round })),
+            },
+          ],
         });
-        apply({ type: "APPLY_GENERATION", requestId: round.id, actions });
         console.info(
           "[Namenym round]",
           JSON.stringify({
             round: round.id,
             firstUsefulNamesMs: Date.now() - started,
             count: result.names.length,
+            guided,
             model: result.model,
           })
         );
@@ -225,26 +283,6 @@ export function useGeneration(
           notice(
             "No new distinct names in this round. Try a different refinement."
           );
-        const current = get();
-        prepare(
-          current.concepts
-            .filter(
-              (c) =>
-                c.included !== false &&
-                c.preparedRevision !== preparationRevision(current)
-            )
-            .map((c) => c.id),
-          false,
-          () =>
-            console.info(
-              "[Namenym round complete]",
-              JSON.stringify({
-                round: round.id,
-                fullRoundMs: Date.now() - started,
-                model: result.model,
-              })
-            )
-        );
       },
     });
   }
@@ -273,8 +311,9 @@ export function useGeneration(
     });
   }
   const active = q.jobs.filter((j) => ["queued", "running"].includes(j.status));
-  const words = active.filter((j) => j.type === "words");
+  const synonyms = active.filter((j) => j.type === "words");
   return {
+    findWords,
     generate,
     prepare,
     refresh,
@@ -284,16 +323,19 @@ export function useGeneration(
     jobs: q.jobs,
     busy: active.length > 0,
     naming: active.some((j) => j.type === "names"),
-    preparingIds: words.flatMap((j) => j.themeIds),
+    finding: active.some((j) => j.type === "roots"),
+    preparingIds: synonyms.flatMap((j) => j.themeIds),
     progress: active
       .map((j) =>
         j.type === "names"
-          ? "Generating names · batch 1 of 1"
+          ? "Generating names"
+          : j.type === "roots"
+          ? "Finding words"
           : j.type === "summary"
           ? "Refreshing summary"
-          : `Preparing words · ${preparation.current?.completed.size ?? 0} of ${
-              preparation.current?.ids.length ?? j.themeIds.length
-            } themes`
+          : `Preparing synonyms · ${
+              preparation.current?.completed.size ?? 0
+            } of ${preparation.current?.ids.length ?? j.themeIds.length} words`
       )
       .filter((v, i, a) => a.indexOf(v) === i)
       .join(" · "),
