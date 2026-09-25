@@ -10,9 +10,9 @@ export function usePresence(host: EditorHost, job: string) {
   >([]);
   useEffect(() => {
     if (!awareness) return;
-    const changed = () =>
-      setPeers(
-        [...awareness.getStates().entries()]
+    let last = "";
+    const changed = () => {
+      const next = [...awareness.getStates().entries()]
           .filter(
             ([id, state]) =>
               id !== awareness.clientID && typeof state.user?.id === "string"
@@ -28,8 +28,14 @@ export function usePresence(host: EditorHost, job: string) {
               typeof state.namenymJob === "string"
                 ? state.namenymJob.slice(0, 160)
                 : "",
-          }))
-      );
+          }));
+      // Awareness fires for cursor moves and heartbeats in other editors;
+      // re-rendering the whole project for an unchanged peer list is costly.
+      const key = JSON.stringify(next);
+      if (key === last) return;
+      last = key;
+      setPeers(next);
+    };
     changed();
     awareness.on("change", changed);
     return () => {

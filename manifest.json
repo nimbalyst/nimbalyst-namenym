@@ -1,7 +1,7 @@
 {
   "id": "com.nimbalyst.namenym",
   "name": "Namenym",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Nimbalyst",
   "description": "AI-powered brand naming tool for Nimbalyst",
   "main": "dist/index.js",

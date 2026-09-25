@@ -1,6 +1,7 @@
 import React, {
   Fragment,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useContext,
@@ -8,7 +9,7 @@ import React, {
 import { normalize, type NamenymProject, type Mashup } from "../types";
 import { ProjectEditingContext } from "../collab/ProjectText";
 import { NameComparison, NameDetail } from "./NameReview";
-import { favoriteMembers } from "../preferences";
+import { indexNames } from "./nameIndex";
 import {
   NameDomainDetails,
   NameDomainToolbar,
@@ -45,7 +46,11 @@ export function NamesPanel({
   onSelection,
 }: Props) {
   const { readOnly } = useContext(ProjectEditingContext);
-  const supporters = (id: string) => favoriteMembers(p, id, favoriteScope);
+  const lookup = useMemo(
+    () => indexNames(p, favoriteScope),
+    [p, favoriteScope]
+  );
+  const supporters = lookup.supporters;
   const [filter, setFilter] = useState<
     "names" | "shortlist" | "team" | "imported" | "hidden"
   >("names");
@@ -70,7 +75,7 @@ export function NamesPanel({
       ? m.hidden
       : !m.hidden &&
         (tab === "shortlist"
-          ? p.shortlisted.includes(m.id)
+          ? lookup.shortlisted.has(m.id)
           : tab === "team"
           ? supporters(m.id).length > 0
           : tab === "imported"
@@ -123,7 +128,7 @@ export function NamesPanel({
   }
   const hideVerb = shared ? "Archive" : "Hide";
   const upvoteVerb = shared ? "Favorite" : "Shortlist";
-  const isShortlisted = (id: string) => p.shortlisted.includes(id);
+  const isShortlisted = (id: string) => lookup.shortlisted.has(id);
   function upvote(id: string) {
     if (readOnly) return;
     apply({ type: "TOGGLE_SHORTLIST", id });
@@ -463,10 +468,9 @@ export function NamesPanel({
                     {supporters(m.id).length === 1 ? "favorite" : "favorites"}
                   </small>
                 )}
-                {p.mashups.some(
-                  (n) =>
-                    n.id !== m.id && normalize(n.label) === normalize(m.label)
-                ) && <small className="nn-duplicate">Duplicate name</small>}
+                {lookup.duplicates.has(m.id) && (
+                  <small className="nn-duplicate">Duplicate name</small>
+                )}
                 <button
                   className={`nn-domain-badge ${
                     hasAvailableCom(m) && domains.jobFor(m)?.status !== "failed"

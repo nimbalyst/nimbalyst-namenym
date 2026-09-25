@@ -529,6 +529,35 @@ test("removal undo restores name source references, and assigning an orphan pres
   assert.equal(p.synonyms[0].dismissed, true);
 });
 
+import { indexNames } from "../src/panels/nameIndex";
+
+test("name index flags every normalized duplicate and scopes supporters", () => {
+  let p = projectReducer(createEmptyProject(), {
+    type: "ADD_MASHUPS",
+    mashups: ["Open Book", "Lumen", "Other"].map((label) => ({
+      label,
+      source: "manual" as const,
+    })),
+  });
+  // Merged peer edits can leave labels that normalize equal.
+  p = { ...p, mashups: p.mashups.map((m, i) => (i === 2 ? { ...m, label: " open  BOOK " } : m)) };
+  const [a, b, c] = p.mashups.map((m) => m.id);
+  p = {
+    ...p,
+    shortlisted: [b],
+    favorites: [
+      { scope: "document:x", memberId: "u1", memberName: "One", nameId: a },
+      { scope: "document:y", memberId: "u2", memberName: "Two", nameId: a },
+    ],
+  };
+  const index = indexNames(p, "document:x");
+  assert.deepEqual([...index.duplicates].sort(), [a, c].sort());
+  assert.equal(index.shortlisted.has(b), true);
+  assert.deepEqual(index.supporters(a).map((f) => f.memberId), ["u1"]);
+  assert.deepEqual(index.supporters(b), []);
+  assert.equal(indexNames(p).supporters(a).length, 2);
+});
+
 import {
   domainQuery,
   parseDomainResponse,
