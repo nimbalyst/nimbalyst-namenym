@@ -35,15 +35,15 @@
     "prepack": "pnpm run build && pnpm run check:package"
   },
   "dependencies": {
-    "react": "^18.2.0"
+    "react": "^19.3.0"
   },
   "devDependencies": {
     "@nimbalyst/extension-sdk": "^0.6.0",
     "@playwright/test": "^1.59.1",
-    "@types/react": "^18.2.0",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^18.3.7",
     "esbuild": "^0.28.2",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.3.0",
     "typescript": "^5.0.0",
     "vite": "^7.3.6",
     "y-protocols": "^1.0.7",
