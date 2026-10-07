@@ -9,6 +9,13 @@
     "url": "https://github.com/nimbalyst/nimbalyst-namenym.git"
   },
   "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "onFail": "error"
+    }
+  },
   "keywords": [
     "nimbalyst",
     "extension",
@@ -24,8 +31,8 @@
     "test:collab-editor": "node tests/build-harness.mjs && playwright test tests/collab-editor.spec.ts --workers=1 --max-failures=1",
     "test:browser": "node tests/build-harness.mjs && playwright test",
     "check:package": "node scripts/check-package.mjs",
-    "check": "npm run typecheck && npm test && npm run test:browser && npm run build && npm run check:package",
-    "prepack": "npm run build && npm run check:package"
+    "check": "pnpm run typecheck && pnpm test && pnpm run test:browser && pnpm run build && pnpm run check:package",
+    "prepack": "pnpm run build && pnpm run check:package"
   },
   "dependencies": {
     "react": "^18.2.0"

@@ -7,11 +7,11 @@ A [Nimbalyst](https://nimbalyst.com) extension for AI-assisted brand naming. Ope
 Namenym is a Nimbalyst extension, not a standalone app. It requires Nimbalyst 0.78.0 or later. To build and install from source:
 
 ```sh
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 ```
 
-Use Node.js 24 for development. In Nimbalyst, enable Extension Dev Tools in Settings > Advanced, then invoke `extension_install` with this checkout's absolute path. Open [samples/demo.namenym](samples/demo.namenym), or create a Namenym Project from the new-file menu. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development and test workflow.
+Use Node.js 24 and pnpm for development (run `corepack enable` once; npm refuses to run in this project). In Nimbalyst, enable Extension Dev Tools in Settings > Advanced, then invoke `extension_install` with this checkout's absolute path. Open [samples/demo.namenym](samples/demo.namenym), or create a Namenym Project from the new-file menu. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development and test workflow.
 
 **Network behavior:** opening a local project automatically checks candidate names with the hosted domain service. AI generation uses your host's configured provider; shared editing uses Nimbalyst's collaboration service. These services and the Nimbalyst host are outside this repository. Read [PRIVACY.md](PRIVACY.md) before using confidential names or briefs.
 
@@ -65,10 +65,10 @@ Mutations use the open editor API when available and the same reducer as manual 
 Use Node.js 24 (see `.nvmrc`); Node.js 22.12+ is also accepted by the package. Live extension testing requires Nimbalyst 0.78.0 or later.
 
 ```sh
-npm ci
-npx playwright install chrome
-npm run check
-npm audit
+pnpm install --frozen-lockfile
+pnpm exec playwright install chrome
+pnpm run check
+pnpm audit
 ```
 
 `test:editor` runs the real React editor against a controlled host/provider in headless Google Chrome; Chrome must be installed. It covers generation races, manual contribution, save concurrency, and invalid/external file handling. Use Nimbalyst's `extension_reload` tool to build and install changes in the desktop app, and the extension testing tools for live checks.
@@ -79,7 +79,7 @@ Generation emits structured `[Namenym timing]`, `[Namenym words]`, `[Namenym pre
 
 ## Contributing and releases
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture and pull-request guidance, [SECURITY.md](SECURITY.md) for vulnerability reporting, [CHANGELOG.md](CHANGELOG.md) for release notes, and [RELEASING.md](RELEASING.md) for the release checklist. `npm pack` builds and checks an explicit allowlist of extension files, excluding local workspaces and test artifacts.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture and pull-request guidance, [SECURITY.md](SECURITY.md) for vulnerability reporting, [CHANGELOG.md](CHANGELOG.md) for release notes, and [RELEASING.md](RELEASING.md) for the release checklist. `pnpm pack` builds and checks an explicit allowlist of extension files, excluding local workspaces and test artifacts.
 
 ## License
 

@@ -1,0 +1,9 @@
+# Flat node_modules like npm, so tools that resolve undeclared deps keep working.
+nodeLinker: hoisted
+# Refuse to install on a Node version outside package.json engines (^22.12.0 || >=24.0.0).
+engineStrict: true
+# 72h cooldown before a newly published version can resolve (supply-chain guard, same as the main repo).
+minimumReleaseAge: 4320
+# Install scripts allowlist. esbuild's postinstall verifies its native binary; the tests and harness build with it.
+allowBuilds:
+  esbuild: true

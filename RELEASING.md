@@ -2,11 +2,11 @@
 
 ## Validate the candidate
 
-1. Use Node.js 24 and a clean checkout. Run `npm ci`, `npx playwright install chrome`, `npm run check`, and `npm audit`. On Linux, install Chrome with `--with-deps`.
+1. Use Node.js 24 and a clean checkout. Run `pnpm install --frozen-lockfile`, `pnpm exec playwright install chrome`, `pnpm run check`, and `pnpm audit`. On Linux, install Chrome with `--with-deps`.
 2. Keep `package.json` and `manifest.json` versions identical, regenerate the lockfile if needed, and finalize the changelog entry. Confirm the minimum Nimbalyst version still matches the APIs used.
 3. Review `git status --short` and `git ls-files` for private material. Local agent configuration, transcripts, validation artifacts, `.env` files, and credentials must stay excluded. Scan the candidate source and built package with a secret scanner such as Gitleaks; a clean scan is not a substitute for reviewing samples and documentation.
 4. Install the built extension in a supported Nimbalyst desktop app. Open the demo, add and edit names, save/reopen, run generation, stop a job, and check a domain. If collaboration changed, verify two real clients and persistence through the hosted transport. Browser fixtures do not prove live host/provider or deployment behavior.
-5. Run `npm pack`. Its prepack hook rebuilds the extension and validates the package contents. Inspect the resulting `nimbalyst-namenym-<version>.tgz`; it contains the manifest, built JS/CSS/source map, demo, license, notices, and documentation. This is an extension payload, not a standalone web app. It can be extracted and installed with the extension development tools.
+5. Run `pnpm pack`. Its prepack hook rebuilds the extension and validates the package contents. Inspect the resulting `nimbalyst-namenym-<version>.tgz`; it contains the manifest, built JS/CSS/source map, demo, license, notices, and documentation. This is an extension payload, not a standalone web app. It can be extracted and installed with the extension development tools.
 
 ## First public release
 
