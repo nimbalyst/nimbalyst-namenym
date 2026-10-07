@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@nimbalyst/extension-sdk": "^0.6.0",
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.63.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.3.7",
     "esbuild": "^0.28.2",
