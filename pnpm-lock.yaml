@@ -13,8 +13,8 @@ importers:
         version: 18.3.1
     devDependencies:
       '@nimbalyst/extension-sdk':
-        specifier: ^0.6.0
-        version: 0.6.0(react@18.3.1)(vite@7.3.6)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
+        specifier: ^0.7.0
+        version: 0.7.0(react@18.3.1)(vite@7.3.6)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
       '@playwright/test':
         specifier: ^1.59.1
         version: 1.59.1
@@ -201,8 +201,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@nimbalyst/extension-sdk@0.6.0':
-    resolution: {integrity: sha512-4tzLIBVeD7CZnwcQE3LSYcbmia+s/t0V4kxZe2lEY76LBsJYsjhBUT0EnvW1uqbwJjfFGAOjpuS3pYV/NGek0w==}
+  '@nimbalyst/extension-sdk@0.7.0':
+    resolution: {integrity: sha512-KWsP/R1mQiN9yp0oqKGhPm1Arjdjurd2YVHOQfevZui1mo3e929gpIvtgIPss2NleSFR5JqJV6XwqzrS6+VufQ==}
     peerDependencies:
       '@vitejs/plugin-react': ^5.1.2
       react: ^18.2.0 || ^19.0.0
@@ -609,7 +609,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@nimbalyst/extension-sdk@0.6.0(react@18.3.1)(vite@7.3.6)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
+  '@nimbalyst/extension-sdk@0.7.0(react@18.3.1)(vite@7.3.6)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
     optionalDependencies:
       react: 18.3.1
       vite: 7.3.6
